@@ -72,7 +72,7 @@ earthengine authenticate
 
 ```
 Climate_API/
-├── notebooks/                              # Production-ready Python scripts
+├── scripts/                              # Production-ready Python scripts
 │   ├── 01_basic_temperature_extraction_working.py  # Basic climate data extraction
 │   └── case_study_soweto_working.py                # Soweto health research case study
 ├── src/                                    # Core utility functions
