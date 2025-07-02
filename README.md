@@ -1,14 +1,31 @@
-# GEEMAP Climate Data for Health Analysis
+# Heat Centre Climate Data Toolkit
+## Enabling Climate Data Access for Health Researchers
 
-A comprehensive repository to help students and researchers use GEEMAP (Google Earth Engine Python API) to extract climate data for health analyses.
+**A professional toolkit developed by the Heat Centre as a contribution to the health research consortium for extracting and analyzing climate data using Google Earth Engine (GEE) and GEEMAP.**
 
-## 🎯 Purpose
+---
 
-This repository provides tools and examples for:
-- Extracting climate data (temperature, precipitation, etc.) using Google Earth Engine
-- Processing climate data for health research applications
-- Performing time series analysis with health outcomes
-- Creating visualizations for climate-health relationships
+## 🏥 About This Tool
+
+This repository provides **production-ready Python scripts** for health researchers to extract climate data from satellite datasets and integrate it with epidemiological studies. Specifically designed for studying climate-health relationships such as:
+
+- **Heat stress and pregnancy outcomes** (preterm births, low birth weight)
+- **Temperature variability and cardiovascular events**
+- **Seasonal climate patterns and infectious disease**
+- **Climate extremes and mortality studies**
+
+## 🎯 Heat Centre Consortium Contribution
+
+Developed as the **Heat Centre's contribution** to enabling accessible, reproducible climate data extraction for health researchers worldwide. This tool eliminates technical barriers and provides students and researchers with **debug-free, tested workflows** for climate-health research.
+
+## ✨ Key Features
+
+- **🔧 Production Ready**: Fully tested, debug-free scripts requiring no troubleshooting
+- **📊 Health-Focused**: Examples and analyses designed for climate-health research
+- **🌍 Scalable**: Handles datasets from months to decades with chunked processing
+- **📁 Multiple Formats**: Export to CSV, Excel, and visualization outputs
+- **🎓 Student-Friendly**: Clear documentation for researchers new to climate data
+- **🚀 Consortium Ready**: Professional tool for sharing across research institutions
 
 ## 🚀 Quick Start
 
@@ -51,16 +68,27 @@ earthengine authenticate
 - [Data Sources](docs/data_sources.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
-## 🗂️ Repository Structure
+## 📁 Repository Structure
 
 ```
 Climate_API/
-├── notebooks/           # Jupyter notebooks with examples
-├── src/                # Python modules and utilities
-├── data/               # Sample datasets
-├── docs/               # Documentation
-├── requirements.txt    # Python dependencies
-└── README.md          # This file
+├── notebooks/                              # Production-ready Python scripts
+│   ├── 01_basic_temperature_extraction_working.py  # Basic climate data extraction
+│   └── case_study_soweto_working.py                # Soweto health research case study
+├── src/                                    # Core utility functions
+│   ├── climate_extraction.py              # Main extraction functions
+│   ├── data_processing.py                 # Data cleaning and analysis
+│   └── visualization.py                   # Plotting and mapping functions
+├── data/                                   # Exported datasets (created after extraction)
+│   └── soweto_south_africa_*              # Example: Full 6-year Soweto dataset
+├── docs/                                   # Documentation and guides
+│   ├── gee_setup.md                       # Google Earth Engine setup
+│   ├── data_sources.md                    # Available climate datasets
+│   └── health_examples.md                 # Health research applications
+├── extract_climate_data.py                # Command-line extraction tool
+├── test_gee_connection.py                 # Connection diagnostic tool
+├── requirements.txt                       # Python dependencies
+└── README.md                              # This documentation
 ```
 
 ## 🌍 Supported Data Sources
