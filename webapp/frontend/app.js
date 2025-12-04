@@ -470,29 +470,19 @@ async function searchLocation(query) {
     const resultsDiv = document.getElementById('search-results');
 
     try {
-        // Use Nominatim (OpenStreetMap) geocoding API
-        // Bias results towards South Africa
-        const url = `https://nominatim.openstreetmap.org/search?` +
-            `q=${encodeURIComponent(query)}` +
-            `&format=json` +
-            `&limit=5` +
-            `&countrycodes=za` + // Prioritize South Africa
-            `&addressdetails=1`;
+        // Use backend geocoding endpoint (Google Maps or Nominatim fallback)
+        const url = `${API_BASE_URL}/geocode?query=${encodeURIComponent(query)}`;
 
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'ClimateHealthApp/1.0'
-            }
-        });
+        const response = await fetch(url);
 
         if (!response.ok) {
             throw new Error('Geocoding request failed');
         }
 
-        const results = await response.json();
-        currentSearchResults = results;
+        const data = await response.json();
+        currentSearchResults = data.results || [];
 
-        displaySearchResults(results);
+        displaySearchResults(currentSearchResults);
     } catch (error) {
         console.error('Geocoding error:', error);
         resultsDiv.innerHTML = '<div class="p-3 text-red-600 text-sm">Search failed. Please try again.</div>';

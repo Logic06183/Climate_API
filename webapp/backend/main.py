@@ -58,6 +58,7 @@ class LocationRequest(BaseModel):
     start_date: str = Field(..., pattern=r'^\d{4}-\d{2}-\d{2}$', description="Start date (YYYY-MM-DD)")
     end_date: str = Field(..., pattern=r'^\d{4}-\d{2}-\d{2}$', description="End date (YYYY-MM-DD)")
     buffer_km: float = Field(default=10, ge=1, le=100, description="Buffer radius in kilometers")
+    variables: Optional[List[str]] = Field(default=None, description="List of climate variables to extract. Options: temperature, precipitation, humidity, wind, solar, pressure, evapotranspiration")
 
 class ExtractionResponse(BaseModel):
     """Response model for extraction results"""
@@ -165,6 +166,48 @@ async def get_presets():
     """Get list of preset locations"""
     return PRESET_LOCATIONS
 
+@app.get("/geocode")
+async def geocode_location(query: str):
+    """
+    Geocode a location name to coordinates
+    Uses Nominatim (OpenStreetMap) - free, no API key required
+    """
+    try:
+        import requests
+
+        # Use Nominatim (OpenStreetMap) geocoding - free, no API key needed
+        url = f"https://nominatim.openstreetmap.org/search"
+        params = {
+            'q': query,
+            'format': 'json',
+            'limit': 5,
+            'countrycodes': 'za',
+            'addressdetails': 1
+        }
+        headers = {'User-Agent': 'ClimateHealthApp/1.0'}
+
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            formatted_results = []
+            for item in data:
+                formatted_results.append({
+                    "name": item.get('name', item.get('display_name', '').split(',')[0]),
+                    "display_name": item.get('display_name', ''),
+                    "lat": float(item['lat']),
+                    "lon": float(item['lon']),
+                    "type": item.get('type', 'location')
+                })
+            return {"results": formatted_results}
+        else:
+            raise HTTPException(status_code=500, detail="Geocoding service unavailable")
+
+    except Exception as e:
+        print(f"Geocoding error: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Geocoding failed: {str(e)}")
+
 @app.post("/extract", response_model=ExtractionResponse)
 async def extract_single_location(request: LocationRequest):
     """
@@ -180,36 +223,50 @@ async def extract_single_location(request: LocationRequest):
             buffer_km=request.buffer_km
         )
 
-        # Get temperature data
-        collection = extractor.get_era5_temperature(
-            geometry=geometry,
-            start_date=request.start_date,
-            end_date=request.end_date
-        )
-
-        # Extract time series
+        # Create point
         point = extractor.create_point(request.latitude, request.longitude)
-        df = extractor.extract_temperature_timeseries(collection, point)
+
+        # Extract climate data using new multi-variable method
+        df = extractor.extract_climate_data(
+            geometry=geometry,
+            point=point,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            variables=request.variables
+        )
 
         if df.empty:
             raise HTTPException(status_code=404, detail="No data found for specified period")
 
-        # Calculate statistics
-        temp_stats = {
-            "min": float(df['tmean_celsius'].min()),
-            "max": float(df['tmax_celsius'].max()),
-            "mean": float(df['tmean_celsius'].mean())
-        }
+        # Calculate statistics based on available columns
+        stats = {}
+        if 'tmean_celsius' in df.columns:
+            stats["temperature"] = {
+                "min": float(df['tmean_celsius'].min()),
+                "max": float(df['tmax_celsius'].max()) if 'tmax_celsius' in df.columns else float(df['tmean_celsius'].max()),
+                "mean": float(df['tmean_celsius'].mean())
+            }
+        if 'precipitation_mm' in df.columns:
+            stats["precipitation"] = {
+                "total": float(df['precipitation_mm'].sum()),
+                "mean": float(df['precipitation_mm'].mean()),
+                "max": float(df['precipitation_mm'].max())
+            }
+        if 'wind_speed_ms' in df.columns:
+            stats["wind_speed"] = {
+                "mean": float(df['wind_speed_ms'].mean()),
+                "max": float(df['wind_speed_ms'].max())
+            }
 
         # Convert to dict for response
         data_dict = df.to_dict(orient='records')
 
         return ExtractionResponse(
             status="success",
-            message=f"Successfully extracted {len(df)} records",
+            message=f"Successfully extracted {len(df)} records with {len(df.columns)-1} variables",
             location=request.location_name,
             records_extracted=len(df),
-            temperature_range=temp_stats,
+            temperature_range=stats,
             data={"daily": data_dict}
         )
 

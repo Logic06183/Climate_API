@@ -155,27 +155,162 @@ class ClimateDataExtractor:
     def calculate_monthly_averages(self, daily_df: pd.DataFrame) -> pd.DataFrame:
         """
         Calculate monthly temperature averages
-        
+
         Args:
             daily_df (pd.DataFrame): Daily temperature data
-            
+
         Returns:
             pd.DataFrame: Monthly averages
         """
         monthly_df = daily_df.copy()
         monthly_df['year_month'] = monthly_df['date'].dt.to_period('M')
-        
+
         monthly_averages = monthly_df.groupby('year_month').agg({
             'tmax_celsius': ['mean', 'std', 'min', 'max', 'count'],
             'tmean_celsius': ['mean', 'std', 'min', 'max', 'count']
         }).round(2)
-        
+
         # Flatten column names
         monthly_averages.columns = ['_'.join(col).strip() for col in monthly_averages.columns]
         monthly_averages = monthly_averages.reset_index()
         monthly_averages['date'] = monthly_averages['year_month'].dt.to_timestamp()
-        
+
         return monthly_averages
+
+    def _process_temperature(self, image):
+        """Process temperature variables"""
+        tmax = image.select('temperature_2m_max').subtract(273.15).rename('tmax_celsius')
+        tmean = image.select('temperature_2m').subtract(273.15).rename('tmean_celsius')
+        return [tmax, tmean]
+
+    def _process_precipitation(self, image):
+        """Process precipitation variable (m to mm)"""
+        precip = image.select('total_precipitation_sum').multiply(1000).rename('precipitation_mm')
+        return [precip]
+
+    def _process_humidity(self, image):
+        """Process humidity variable (dewpoint K to °C)"""
+        dewpoint = image.select('dewpoint_temperature_2m').subtract(273.15).rename('dewpoint_celsius')
+        return [dewpoint]
+
+    def _process_wind(self, image):
+        """Process wind variables and calculate wind speed"""
+        u_wind = image.select('u_component_of_wind_10m').rename('wind_u_ms')
+        v_wind = image.select('v_component_of_wind_10m').rename('wind_v_ms')
+        # Calculate wind speed: sqrt(u^2 + v^2)
+        wind_speed = u_wind.pow(2).add(v_wind.pow(2)).sqrt().rename('wind_speed_ms')
+        return [wind_speed, u_wind, v_wind]
+
+    def _process_solar(self, image):
+        """Process solar radiation variable (already in J/m²)"""
+        solar = image.select('surface_solar_radiation_downwards_sum').rename('solar_radiation_jm2')
+        return [solar]
+
+    def _process_pressure(self, image):
+        """Process pressure variable (already in Pa)"""
+        pressure = image.select('surface_pressure').rename('surface_pressure_pa')
+        return [pressure]
+
+    def _process_evapotranspiration(self, image):
+        """Process evapotranspiration variable (m to mm, absolute value)"""
+        evap = image.select('potential_evaporation_sum').multiply(1000).abs().rename('evapotranspiration_mm')
+        return [evap]
+
+    def extract_climate_data(self, geometry: ee.Geometry, point: ee.Geometry,
+                           start_date: str, end_date: str,
+                           variables: List[str] = None) -> pd.DataFrame:
+        """
+        Extract climate data for multiple variables
+
+        Args:
+            geometry (ee.Geometry): Study area geometry
+            point (ee.Geometry): Point geometry for extraction
+            start_date (str): Start date (YYYY-MM-DD)
+            end_date (str): End date (YYYY-MM-DD)
+            variables (List[str]): List of variable categories to extract.
+                Options: 'temperature', 'precipitation', 'humidity', 'wind',
+                         'solar', 'pressure', 'evapotranspiration'
+                If None, defaults to ['temperature']
+
+        Returns:
+            pd.DataFrame: Daily climate data with selected variables
+        """
+        if not self.initialized:
+            raise RuntimeError("Google Earth Engine not initialized")
+
+        if variables is None:
+            variables = ['temperature']
+
+        print(f"Extracting climate data for variables: {', '.join(variables)}")
+
+        # Get ERA5-Land collection
+        collection = ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR') \
+            .filterDate(start_date, end_date) \
+            .filterBounds(geometry)
+
+        # Process each variable type
+        def process_image(image):
+            bands = []
+
+            if 'temperature' in variables:
+                bands.extend(self._process_temperature(image))
+
+            if 'precipitation' in variables:
+                bands.extend(self._process_precipitation(image))
+
+            if 'humidity' in variables:
+                bands.extend(self._process_humidity(image))
+
+            if 'wind' in variables:
+                bands.extend(self._process_wind(image))
+
+            if 'solar' in variables:
+                bands.extend(self._process_solar(image))
+
+            if 'pressure' in variables:
+                bands.extend(self._process_pressure(image))
+
+            if 'evapotranspiration' in variables:
+                bands.extend(self._process_evapotranspiration(image))
+
+            # Create new image with all processed bands
+            return image.select([]).addBands(bands).copyProperties(image, ['system:time_start'])
+
+        processed_collection = collection.map(process_image)
+
+        print("Extracting time series from Earth Engine...")
+
+        # Get the time series data
+        time_series = processed_collection.getRegion(point, 1000).getInfo()
+
+        # Convert to DataFrame
+        header = time_series[0]
+        data_rows = time_series[1:]
+
+        df = pd.DataFrame(data_rows, columns=header)
+
+        # Process datetime
+        df['datetime'] = pd.to_datetime(df['time'], unit='ms')
+        df['date'] = df['datetime'].dt.date
+
+        # Select relevant columns (exclude geometry columns)
+        exclude_cols = ['id', 'longitude', 'latitude', 'time', 'datetime', 'date']
+        value_cols = [col for col in df.columns if col not in exclude_cols]
+
+        # Clean and organize data - first create date column, then add value columns
+        climate_df = pd.DataFrame()
+        climate_df['date'] = pd.to_datetime(df['date'])
+
+        # Add value columns
+        for col in value_cols:
+            climate_df[col] = df[col].values
+
+        climate_df = climate_df.dropna(subset=['date'])
+        climate_df = climate_df.sort_values('date').reset_index(drop=True)
+
+        print(f"Successfully extracted {len(climate_df)} daily records with {len(value_cols)} variables")
+
+        return climate_df
 
 
 def get_country_coordinates() -> Dict[str, Tuple[float, float]]:

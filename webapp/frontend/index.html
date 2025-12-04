@@ -118,6 +118,41 @@
                                 <p class="mt-1 text-sm text-gray-500">Area around the point to extract data from</p>
                             </div>
 
+                            <div class="border-t pt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-3">Climate Variables to Extract</label>
+                                <p class="text-xs text-gray-600 mb-3">Source: <a href="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land" target="_blank" class="text-blue-600 hover:underline">ERA5-Land Daily Aggregated (ECMWF)</a></p>
+                                <div class="space-y-2">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="variables" value="temperature" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <span class="ml-2 text-sm">Temperature (mean, max, min) - °C</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="variables" value="precipitation" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <span class="ml-2 text-sm">Precipitation (total) - mm</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="variables" value="humidity" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <span class="ml-2 text-sm">Humidity (dewpoint temperature) - °C</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="variables" value="wind" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <span class="ml-2 text-sm">Wind (U/V components at 10m) - m/s</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="variables" value="solar" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <span class="ml-2 text-sm">Solar Radiation (surface downwards) - J/m²</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="variables" value="pressure" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <span class="ml-2 text-sm">Surface Pressure - Pa</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" name="variables" value="evapotranspiration" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <span class="ml-2 text-sm">Evapotranspiration (potential) - m</span>
+                                    </label>
+                                </div>
+                            </div>
+
                             <button type="submit"
                                 class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium">
                                 🚀 Extract Climate Data
@@ -201,6 +236,41 @@
                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
                     </div>
 
+                    <div class="border-t pt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Climate Variables to Extract</label>
+                        <p class="text-xs text-gray-600 mb-3">Source: <a href="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land" target="_blank" class="text-blue-600 hover:underline">ERA5-Land Daily Aggregated (ECMWF)</a></p>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="batch-variables" value="temperature" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm">Temperature (mean, max, min) - °C</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="batch-variables" value="precipitation" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm">Precipitation (total) - mm</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="batch-variables" value="humidity" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm">Humidity (dewpoint temperature) - °C</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="batch-variables" value="wind" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm">Wind (U/V components at 10m) - m/s</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="batch-variables" value="solar" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm">Solar Radiation (surface downwards) - J/m²</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="batch-variables" value="pressure" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm">Surface Pressure - Pa</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="batch-variables" value="evapotranspiration" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="ml-2 text-sm">Evapotranspiration (potential) - m</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <button type="submit"
                         class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 font-medium">
                         🚀 Process All Locations
@@ -228,6 +298,6 @@
         </div>
     </footer>
 
-    <script src="app.js"></script>
+    <script src="/static/app.js"></script>
 </body>
 </html>
