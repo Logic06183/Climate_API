@@ -1,169 +1,104 @@
+#!/usr/bin/env python3
 """
 Test script for multi-variable climate data extraction
-Tests each variable individually and all variables together
 """
 
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+import requests
+import json
+from datetime import datetime, timedelta
 
-from src.climate_utils import ClimateDataExtractor
-import pandas as pd
+API_BASE_URL = "http://localhost:8000"
 
-def test_variable_extraction(extractor, variables, test_name):
-    """Test extraction of specific variables"""
-    print("\n" + "="*80)
-    print(f"TEST: {test_name}")
-    print("="*80)
+def test_extraction(test_name, variables, location_name="Test Soweto"):
+    """Test extraction with specified variables"""
+    print(f"\n{'='*60}")
+    print(f"Test: {test_name}")
+    print(f"Variables: {variables}")
+    print(f"{'='*60}")
 
-    # Test location: Johannesburg
-    lat = -26.2041
-    lon = 28.0473
+    # Calculate date range (last 7 days for quick testing)
+    end_date = datetime(2024, 1, 7)
+    start_date = datetime(2024, 1, 1)
 
-    # Short date range for quick testing
-    start_date = "2023-01-01"
-    end_date = "2023-01-31"
+    payload = {
+        "location_name": location_name,
+        "latitude": -26.2678,
+        "longitude": 27.8607,
+        "start_date": start_date.strftime("%Y-%m-%d"),
+        "end_date": end_date.strftime("%Y-%m-%d"),
+        "buffer_km": 10,
+        "variables": variables
+    }
 
     try:
-        # Create geometry
-        geometry = extractor.create_study_area(lat, lon, buffer_km=10)
-        point = extractor.create_point(lat, lon)
+        response = requests.post(f"{API_BASE_URL}/extract", json=payload, timeout=120)
 
-        # Extract data
-        print(f"\nExtracting variables: {variables}")
-        df = extractor.extract_climate_data(
-            geometry=geometry,
-            point=point,
-            start_date=start_date,
-            end_date=end_date,
-            variables=variables
-        )
+        if response.status_code == 200:
+            data = response.json()
+            print(f"✅ Status: {data['status']}")
+            print(f"📊 Records extracted: {data['records_extracted']}")
+            print(f"📝 Message: {data['message']}")
 
-        # Display results
-        print(f"\nExtracted {len(df)} records")
-        print(f"Columns: {list(df.columns)}")
-        print("\nFirst 5 rows:")
-        print(df.head())
-        print("\nData summary:")
-        print(df.describe())
+            # Show available statistics
+            if data.get('temperature_range'):
+                print(f"\n📈 Available statistics:")
+                for stat_type, stats in data['temperature_range'].items():
+                    print(f"  - {stat_type}: {stats}")
 
-        # Save to CSV
-        output_file = f"test_output_{test_name.replace(' ', '_').lower()}.csv"
-        df.to_csv(output_file, index=False)
-        print(f"\nSaved to: {output_file}")
+            # Show data columns
+            if data.get('data') and data['data'].get('daily'):
+                first_record = data['data']['daily'][0]
+                print(f"\n🔍 Data columns: {list(first_record.keys())}")
+                print(f"\n📅 Sample record (first day):")
+                for key, value in first_record.items():
+                    if isinstance(value, float):
+                        print(f"  - {key}: {value:.2f}")
+                    else:
+                        print(f"  - {key}: {value}")
 
-        return True, df
+            return True
+        else:
+            print(f"❌ Error: {response.status_code}")
+            print(f"Response: {response.text}")
+            return False
 
     except Exception as e:
-        print(f"\nERROR: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False, None
+        print(f"❌ Exception: {str(e)}")
+        return False
 
 def main():
-    """Run all tests"""
-    print("="*80)
-    print("MULTI-VARIABLE CLIMATE DATA EXTRACTION TESTS")
-    print("="*80)
+    print("🌍 Testing Multi-Variable Climate Data Extraction API")
+    print("=" * 60)
 
-    # Initialize extractor
-    project_id = os.getenv('PROJECT_ID', 'joburg-hvi')
-    extractor = ClimateDataExtractor(project_id=project_id)
+    tests = [
+        ("Temperature Only", ["temperature"]),
+        ("Temperature + Precipitation", ["temperature", "precipitation"]),
+        ("Temperature + Wind", ["temperature", "wind"]),
+        ("All Variables", ["temperature", "precipitation", "humidity", "wind", "solar", "pressure", "evapotranspiration"]),
+    ]
 
-    if not extractor.initialized:
-        print("ERROR: Google Earth Engine not initialized")
-        return
-
-    results = {}
-
-    # Test 1: Temperature (baseline - backward compatibility)
-    success, df = test_variable_extraction(
-        extractor,
-        ['temperature'],
-        "Temperature Only (Backward Compatibility)"
-    )
-    results['temperature'] = success
-
-    # Test 2: Precipitation
-    success, df = test_variable_extraction(
-        extractor,
-        ['precipitation'],
-        "Precipitation"
-    )
-    results['precipitation'] = success
-
-    # Test 3: Humidity (Dewpoint)
-    success, df = test_variable_extraction(
-        extractor,
-        ['humidity'],
-        "Humidity (Dewpoint)"
-    )
-    results['humidity'] = success
-
-    # Test 4: Wind
-    success, df = test_variable_extraction(
-        extractor,
-        ['wind'],
-        "Wind (Speed and Components)"
-    )
-    results['wind'] = success
-
-    # Test 5: Solar Radiation
-    success, df = test_variable_extraction(
-        extractor,
-        ['solar'],
-        "Solar Radiation"
-    )
-    results['solar'] = success
-
-    # Test 6: Surface Pressure
-    success, df = test_variable_extraction(
-        extractor,
-        ['pressure'],
-        "Surface Pressure"
-    )
-    results['pressure'] = success
-
-    # Test 7: Evapotranspiration
-    success, df = test_variable_extraction(
-        extractor,
-        ['evapotranspiration'],
-        "Evapotranspiration"
-    )
-    results['evapotranspiration'] = success
-
-    # Test 8: Multiple variables together
-    success, df = test_variable_extraction(
-        extractor,
-        ['temperature', 'precipitation', 'humidity', 'wind', 'solar', 'pressure', 'evapotranspiration'],
-        "All Variables Combined"
-    )
-    results['all_variables'] = success
-
-    # Test 9: Custom combination
-    success, df = test_variable_extraction(
-        extractor,
-        ['temperature', 'precipitation', 'wind'],
-        "Custom Combination (Temp + Precip + Wind)"
-    )
-    results['custom_combo'] = success
+    results = []
+    for test_name, variables in tests:
+        success = test_extraction(test_name, variables)
+        results.append((test_name, success))
 
     # Summary
-    print("\n" + "="*80)
-    print("TEST SUMMARY")
-    print("="*80)
-    for test_name, success in results.items():
-        status = "PASSED" if success else "FAILED"
-        print(f"{test_name:30s}: {status}")
+    print(f"\n{'='*60}")
+    print("📊 TEST SUMMARY")
+    print(f"{'='*60}")
+    passed = sum(1 for _, success in results if success)
+    total = len(results)
 
-    total_tests = len(results)
-    passed_tests = sum(results.values())
-    print(f"\nTotal: {passed_tests}/{total_tests} tests passed")
+    for test_name, success in results:
+        status = "✅ PASSED" if success else "❌ FAILED"
+        print(f"{status}: {test_name}")
 
-    if passed_tests == total_tests:
-        print("\nALL TESTS PASSED!")
+    print(f"\nResults: {passed}/{total} tests passed")
+
+    if passed == total:
+        print("\n🎉 All tests passed! Multi-variable extraction is working correctly.")
     else:
-        print(f"\n{total_tests - passed_tests} TESTS FAILED")
+        print(f"\n⚠️  {total - passed} test(s) failed. Please review the errors above.")
 
 if __name__ == "__main__":
     main()

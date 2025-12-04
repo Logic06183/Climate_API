@@ -3,10 +3,11 @@ Climate-Health Data Extraction API
 FastAPI backend for extracting climate data from Google Earth Engine
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, Security, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel, Field
 from typing import Optional, List
 import pandas as pd
@@ -17,6 +18,7 @@ from datetime import datetime
 import asyncio
 from io import BytesIO
 import traceback
+import logging
 
 # Add parent directory to path to import climate utilities
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
@@ -33,14 +35,50 @@ frontend_path = os.path.join(os.path.dirname(__file__), '../frontend')
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
-# CORS middleware to allow frontend access
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# CORS middleware with production-ready settings
+ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000').split(',')
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_origins=ALLOWED_ORIGINS + ["https://climate-health-app-*.run.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# API Key Authentication
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+async def get_api_key(api_key: str = Security(api_key_header)):
+    """
+    Validate API key from request header
+    """
+    # Get valid API keys from environment variable
+    valid_keys_str = os.getenv('VALID_API_KEYS', '')
+    valid_keys = [k.strip() for k in valid_keys_str.split(',') if k.strip()]
+
+    # Allow access if no API keys are configured (development mode)
+    if not valid_keys:
+        logger.warning("No API keys configured - running in development mode")
+        return None
+
+    # Check if provided API key is valid
+    if not api_key or api_key not in valid_keys:
+        logger.warning(f"Invalid or missing API key attempt")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key. Include 'X-API-Key' header with a valid key."
+        )
+
+    logger.info(f"Valid API key used")
+    return api_key
 
 # Initialize climate data extractor with project ID
 PROJECT_ID = os.getenv('PROJECT_ID', 'joburg-hvi')
@@ -161,12 +199,12 @@ async def health_check():
         "timestamp": datetime.now().isoformat()
     }
 
-@app.get("/presets", response_model=List[PresetLocation])
+@app.get("/presets", response_model=List[PresetLocation], dependencies=[Depends(get_api_key)])
 async def get_presets():
-    """Get list of preset locations"""
+    """Get list of preset locations (requires API key)"""
     return PRESET_LOCATIONS
 
-@app.get("/geocode")
+@app.get("/geocode", dependencies=[Depends(get_api_key)])
 async def geocode_location(query: str):
     """
     Geocode a location name to coordinates
@@ -204,17 +242,16 @@ async def geocode_location(query: str):
             raise HTTPException(status_code=500, detail="Geocoding service unavailable")
 
     except Exception as e:
-        print(f"Geocoding error: {str(e)}")
-        traceback.print_exc()
+        logger.error(f"Geocoding error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Geocoding failed: {str(e)}")
 
-@app.post("/extract", response_model=ExtractionResponse)
+@app.post("/extract", response_model=ExtractionResponse, dependencies=[Depends(get_api_key)])
 async def extract_single_location(request: LocationRequest):
     """
     Extract climate data for a single location
     """
     try:
-        print(f"Extracting data for {request.location_name}")
+        logger.info(f"Extracting data for {request.location_name}")
 
         # Create study area
         geometry = extractor.create_study_area(
@@ -271,11 +308,10 @@ async def extract_single_location(request: LocationRequest):
         )
 
     except Exception as e:
-        print(f"Error extracting data: {str(e)}")
-        traceback.print_exc()
+        logger.error(f"Error extracting data: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
 
-@app.post("/extract/batch")
+@app.post("/extract/batch", dependencies=[Depends(get_api_key)])
 async def extract_batch_csv(file: UploadFile = File(...), start_date: str = "", end_date: str = "", buffer_km: float = 10):
     """
     Extract climate data for multiple locations from CSV file
@@ -319,7 +355,7 @@ async def extract_batch_csv(file: UploadFile = File(...), start_date: str = "", 
             lat = row['latitude']
             lon = row['longitude']
 
-            print(f"Processing {idx + 1}/{total_locations}: {location_name}")
+            logger.info(f"Processing {idx + 1}/{total_locations}: {location_name}")
 
             try:
                 # Create study area
@@ -339,10 +375,10 @@ async def extract_batch_csv(file: UploadFile = File(...), start_date: str = "", 
                 if not df_temp.empty:
                     all_results[location_name] = df_temp
                 else:
-                    print(f"No data found for {location_name}")
+                    logger.warning(f"No data found for {location_name}")
 
             except Exception as e:
-                print(f"Error processing {location_name}: {str(e)}")
+                logger.error(f"Error processing {location_name}: {str(e)}")
                 continue
 
         if not all_results:
@@ -385,8 +421,7 @@ async def extract_batch_csv(file: UploadFile = File(...), start_date: str = "", 
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error in batch extraction: {str(e)}")
-        traceback.print_exc()
+        logger.error(f"Error in batch extraction: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Batch extraction failed: {str(e)}")
 
 @app.websocket("/ws/extract")
@@ -416,8 +451,9 @@ async def websocket_extract(websocket: WebSocket):
         await websocket.send_json({"status": "completed", "progress": 100})
 
     except WebSocketDisconnect:
-        print("Client disconnected")
+        logger.info("WebSocket client disconnected")
     except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
         await websocket.send_json({"status": "error", "message": str(e)})
 
 if __name__ == "__main__":

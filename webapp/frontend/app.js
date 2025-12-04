@@ -170,13 +170,26 @@ async function handleSingleExtraction(e) {
     // Show progress
     showProgress('single', 'Initializing extraction...');
 
+    // Collect selected variables
+    const selectedVariables = Array.from(
+        document.querySelectorAll('input[name="variables"]:checked')
+    ).map(checkbox => checkbox.value);
+
+    // Ensure at least one variable is selected
+    if (selectedVariables.length === 0) {
+        alert('Please select at least one climate variable to extract');
+        hideProgress('single');
+        return;
+    }
+
     const data = {
         location_name: document.getElementById('location-name').value,
         latitude: parseFloat(document.getElementById('latitude').value),
         longitude: parseFloat(document.getElementById('longitude').value),
         start_date: document.getElementById('start-date').value,
         end_date: document.getElementById('end-date').value,
-        buffer_km: parseFloat(document.getElementById('buffer-km').value)
+        buffer_km: parseFloat(document.getElementById('buffer-km').value),
+        variables: selectedVariables
     };
 
     try {
@@ -212,8 +225,8 @@ function displaySingleResults(result) {
     const resultsDiv = document.getElementById('results-single');
     const contentDiv = document.getElementById('results-content');
 
-    // Display summary statistics
-    contentDiv.innerHTML = `
+    // Build statistics cards dynamically based on available data
+    let statsHtml = `
         <div class="grid grid-cols-3 gap-4 mb-6">
             <div class="bg-blue-50 p-4 rounded-lg">
                 <div class="text-sm text-blue-600 font-medium">Location</div>
@@ -223,12 +236,47 @@ function displaySingleResults(result) {
                 <div class="text-sm text-green-600 font-medium">Records Extracted</div>
                 <div class="text-lg font-semibold">${result.records_extracted}</div>
             </div>
+    `;
+
+    // Add statistics for temperature if available
+    if (result.temperature_range && result.temperature_range.temperature) {
+        const tempStats = result.temperature_range.temperature;
+        statsHtml += `
             <div class="bg-orange-50 p-4 rounded-lg">
                 <div class="text-sm text-orange-600 font-medium">Temperature Range</div>
-                <div class="text-lg font-semibold">${result.temperature_range.min.toFixed(1)}°C - ${result.temperature_range.max.toFixed(1)}°C</div>
+                <div class="text-lg font-semibold">${tempStats.min.toFixed(1)}°C - ${tempStats.max.toFixed(1)}°C</div>
             </div>
-        </div>
+        `;
+    }
 
+    // Add statistics for precipitation if available
+    if (result.temperature_range && result.temperature_range.precipitation) {
+        const precipStats = result.temperature_range.precipitation;
+        statsHtml += `
+            <div class="bg-blue-100 p-4 rounded-lg">
+                <div class="text-sm text-blue-700 font-medium">Precipitation</div>
+                <div class="text-lg font-semibold">Total: ${precipStats.total.toFixed(1)} mm</div>
+                <div class="text-sm text-gray-600">Mean: ${precipStats.mean.toFixed(1)} mm/day</div>
+            </div>
+        `;
+    }
+
+    // Add statistics for wind if available
+    if (result.temperature_range && result.temperature_range.wind_speed) {
+        const windStats = result.temperature_range.wind_speed;
+        statsHtml += `
+            <div class="bg-purple-50 p-4 rounded-lg">
+                <div class="text-sm text-purple-600 font-medium">Wind Speed</div>
+                <div class="text-lg font-semibold">Mean: ${windStats.mean.toFixed(1)} m/s</div>
+                <div class="text-sm text-gray-600">Max: ${windStats.max.toFixed(1)} m/s</div>
+            </div>
+        `;
+    }
+
+    statsHtml += `</div>`;
+
+    // Display summary statistics
+    contentDiv.innerHTML = statsHtml + `
         <div class="mb-4">
             <button onclick="downloadSingleData()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
                 📥 Download Data (JSON)
@@ -241,11 +289,11 @@ function displaySingleResults(result) {
     // Store data for download
     window.currentExtractionData = result;
 
-    // Create chart
-    createTemperatureChart(result.data.daily);
+    // Create chart with available data
+    createClimateChart(result.data.daily);
 }
 
-function createTemperatureChart(data) {
+function createClimateChart(data) {
     const ctx = document.getElementById('temperature-chart');
 
     // Destroy existing chart if any
@@ -253,63 +301,132 @@ function createTemperatureChart(data) {
         currentChart.destroy();
     }
 
+    if (!data || data.length === 0) {
+        return;
+    }
+
     // Prepare data
     const dates = data.map(d => d.date);
-    const tmax = data.map(d => d.tmax_celsius);
-    const tmean = data.map(d => d.tmean_celsius);
+    const datasets = [];
+
+    // Detect available variables and create datasets
+    const firstRecord = data[0];
+
+    // Temperature datasets
+    if ('tmax_celsius' in firstRecord) {
+        datasets.push({
+            label: 'Max Temperature (°C)',
+            data: data.map(d => d.tmax_celsius),
+            borderColor: 'rgb(239, 68, 68)',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            tension: 0.3,
+            yAxisID: 'y'
+        });
+    }
+    if ('tmean_celsius' in firstRecord) {
+        datasets.push({
+            label: 'Mean Temperature (°C)',
+            data: data.map(d => d.tmean_celsius),
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.3,
+            yAxisID: 'y'
+        });
+    }
+
+    // Precipitation dataset
+    if ('precipitation_mm' in firstRecord) {
+        datasets.push({
+            label: 'Precipitation (mm)',
+            data: data.map(d => d.precipitation_mm),
+            borderColor: 'rgb(14, 165, 233)',
+            backgroundColor: 'rgba(14, 165, 233, 0.3)',
+            type: 'bar',
+            yAxisID: 'y1'
+        });
+    }
+
+    // Wind speed dataset
+    if ('wind_speed_ms' in firstRecord) {
+        datasets.push({
+            label: 'Wind Speed (m/s)',
+            data: data.map(d => d.wind_speed_ms),
+            borderColor: 'rgb(139, 92, 246)',
+            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            tension: 0.3,
+            yAxisID: 'y2'
+        });
+    }
+
+    // Humidity/Dewpoint dataset
+    if ('dewpoint_celsius' in firstRecord) {
+        datasets.push({
+            label: 'Dewpoint (°C)',
+            data: data.map(d => d.dewpoint_celsius),
+            borderColor: 'rgb(34, 197, 94)',
+            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+            tension: 0.3,
+            yAxisID: 'y'
+        });
+    }
+
+    // Configure scales based on available data
+    const scales = {
+        x: {
+            display: true,
+            title: { display: true, text: 'Date' },
+            ticks: { maxTicksLimit: 10 }
+        },
+        y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: { display: true, text: 'Temperature (°C)' }
+        }
+    };
+
+    // Add secondary axis for precipitation if present
+    if ('precipitation_mm' in firstRecord) {
+        scales.y1 = {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            title: { display: true, text: 'Precipitation (mm)' },
+            grid: { drawOnChartArea: false }
+        };
+    }
+
+    // Add tertiary axis for wind if present
+    if ('wind_speed_ms' in firstRecord) {
+        scales.y2 = {
+            type: 'linear',
+            display: datasets.length > 3,
+            position: 'right',
+            title: { display: true, text: 'Wind Speed (m/s)' },
+            grid: { drawOnChartArea: false }
+        };
+    }
 
     currentChart = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels: dates,
-            datasets: [
-                {
-                    label: 'Maximum Temperature (°C)',
-                    data: tmax,
-                    borderColor: 'rgb(239, 68, 68)',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    tension: 0.3
-                },
-                {
-                    label: 'Mean Temperature (°C)',
-                    data: tmean,
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.3
-                }
-            ]
-        },
+        data: { labels: dates, datasets: datasets },
         options: {
             responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
             plugins: {
                 title: {
                     display: true,
-                    text: 'Daily Temperature Time Series'
+                    text: 'Climate Variables Time Series'
                 },
                 legend: {
                     display: true,
                     position: 'top'
                 }
             },
-            scales: {
-                x: {
-                    display: true,
-                    title: {
-                        display: true,
-                        text: 'Date'
-                    },
-                    ticks: {
-                        maxTicksLimit: 10
-                    }
-                },
-                y: {
-                    display: true,
-                    title: {
-                        display: true,
-                        text: 'Temperature (°C)'
-                    }
-                }
-            }
+            scales: scales
         }
     });
 }
