@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Climate-Health Data Extraction Tool</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        #map { height: 400px; }
+        .tab-active { @apply border-b-2 border-blue-500 text-blue-600; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+            <h1 class="text-3xl font-bold text-gray-900">🌍 Climate-Health Data Extraction Tool</h1>
+            <p class="mt-2 text-sm text-gray-600">Extract climate data from Google Earth Engine for health research</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+
+        <!-- Tabs -->
+        <div class="border-b border-gray-200 mb-6">
+            <nav class="-mb-px flex space-x-8">
+                <button onclick="switchTab('single')" id="tab-single" class="tab-active py-4 px-1 border-b-2 font-medium text-sm">
+                    Single Location
+                </button>
+                <button onclick="switchTab('batch')" id="tab-batch" class="py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    Batch CSV Upload
+                </button>
+            </nav>
+        </div>
+
+        <!-- Single Location Tab -->
+        <div id="content-single" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                <!-- Left Column: Form -->
+                <div class="space-y-6">
+
+                    <!-- Preset Locations -->
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h2 class="text-lg font-semibold mb-4">📍 Quick Start: Preset Locations</h2>
+                        <div id="preset-buttons" class="space-y-2">
+                            <!-- Preset buttons will be dynamically added -->
+                        </div>
+                    </div>
+
+                    <!-- Location Form -->
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h2 class="text-lg font-semibold mb-4">📝 Location Details</h2>
+
+                        <!-- Location Search -->
+                        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <label class="block text-sm font-medium text-blue-900 mb-2">🔍 Search for a Location</label>
+                            <div class="relative">
+                                <input type="text" id="location-search" placeholder="Type a city, hospital, or address..."
+                                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
+                                <div id="search-results" class="hidden absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                    <!-- Search results will appear here -->
+                                </div>
+                            </div>
+                            <p class="mt-1 text-xs text-blue-700">Try: "Soweto", "Chris Hani Hospital", or any South African location</p>
+                        </div>
+
+                        <form id="single-form" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Location Name</label>
+                                <input type="text" id="location-name" required
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Latitude</label>
+                                    <input type="number" id="latitude" step="0.0001" min="-90" max="90" required
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Longitude</label>
+                                    <input type="number" id="longitude" step="0.0001" min="-180" max="180" required
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Start Date</label>
+                                    <input type="date" id="start-date" required
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">End Date</label>
+                                    <input type="date" id="end-date" required
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Buffer Radius (km)</label>
+                                <input type="number" id="buffer-km" value="10" min="1" max="100" required
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
+                                <p class="mt-1 text-sm text-gray-500">Area around the point to extract data from</p>
+                            </div>
+
+                            <button type="submit"
+                                class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium">
+                                🚀 Extract Climate Data
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Right Column: Map -->
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h2 class="text-lg font-semibold mb-4">🗺️ Interactive Map</h2>
+                        <p class="text-sm text-gray-600 mb-4">Click on the map to select a location</p>
+                        <div id="map" class="rounded-lg border border-gray-300"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results-single" class="hidden">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h2 class="text-lg font-semibold mb-4">📊 Extraction Results</h2>
+                    <div id="results-content"></div>
+                    <div class="mt-6">
+                        <canvas id="temperature-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div id="progress-single" class="hidden bg-white p-6 rounded-lg shadow">
+                <h2 class="text-lg font-semibold mb-4">⏳ Processing...</h2>
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div id="progress-bar-single" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="progress-text-single" class="mt-2 text-sm text-gray-600"></p>
+            </div>
+        </div>
+
+        <!-- Batch CSV Upload Tab -->
+        <div id="content-batch" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-lg font-semibold mb-4">📤 Batch CSV Upload</h2>
+
+                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 class="font-medium text-blue-900 mb-2">📋 CSV Format Requirements</h3>
+                    <p class="text-sm text-blue-800 mb-2">Your CSV file should have the following columns:</p>
+                    <ul class="text-sm text-blue-800 list-disc list-inside space-y-1">
+                        <li><code class="bg-blue-100 px-1 rounded">location_name</code> - Name of the location (e.g., "Clinic A", "Hospital B")</li>
+                        <li><code class="bg-blue-100 px-1 rounded">latitude</code> (or <code class="bg-blue-100 px-1 rounded">lat</code>) - Latitude coordinate</li>
+                        <li><code class="bg-blue-100 px-1 rounded">longitude</code> (or <code class="bg-blue-100 px-1 rounded">lon</code>) - Longitude coordinate</li>
+                    </ul>
+                    <button onclick="downloadSampleCSV()" class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                        ⬇️ Download Sample CSV
+                    </button>
+                </div>
+
+                <form id="batch-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Upload CSV File</label>
+                        <input type="file" id="csv-file" accept=".csv" required
+                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Start Date</label>
+                            <input type="date" id="batch-start-date" required
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">End Date</label>
+                            <input type="date" id="batch-end-date" required
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Buffer Radius (km)</label>
+                        <input type="number" id="batch-buffer-km" value="10" min="1" max="100" required
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border">
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 font-medium">
+                        🚀 Process All Locations
+                    </button>
+                </form>
+            </div>
+
+            <!-- Progress Section -->
+            <div id="progress-batch" class="hidden bg-white p-6 rounded-lg shadow">
+                <h2 class="text-lg font-semibold mb-4">⏳ Processing Batch...</h2>
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div id="progress-bar-batch" class="bg-green-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="progress-text-batch" class="mt-2 text-sm text-gray-600"></p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 bg-white border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+            <p class="text-center text-sm text-gray-500">
+                Climate-Health Data Extraction Tool | Powered by Google Earth Engine
+            </p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

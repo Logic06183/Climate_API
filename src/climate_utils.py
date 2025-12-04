@@ -21,38 +21,65 @@ class ClimateDataExtractor:
     A class for extracting climate data from Google Earth Engine
     """
     
-    def __init__(self):
-        """Initialize the climate data extractor"""
+    def __init__(self, project_id: Optional[str] = None):
+        """Initialize the climate data extractor
+
+        Args:
+            project_id: Google Cloud project ID for Earth Engine (optional)
+        """
         self.initialized = False
+        self.project_id = project_id
         self._initialize_ee()
-    
+
     def _initialize_ee(self):
         """Initialize Google Earth Engine"""
         try:
-            ee.Initialize()
+            if self.project_id:
+                ee.Initialize(project=self.project_id)
+                print(f"✅ Google Earth Engine initialized successfully with project: {self.project_id}")
+            else:
+                ee.Initialize()
+                print("✅ Google Earth Engine initialized successfully")
             self.initialized = True
-            print("✅ Google Earth Engine initialized successfully")
         except Exception as e:
             print(f"❌ Error initializing Google Earth Engine: {e}")
             print("Please run 'earthengine authenticate' in your terminal")
             self.initialized = False
     
+    def create_point(self, lat: float, lon: float) -> ee.Geometry.Point:
+        """
+        Create a point geometry from coordinates
+
+        Args:
+            lat (float): Latitude
+            lon (float): Longitude
+
+        Returns:
+            ee.Geometry.Point: Point geometry
+        """
+        if not self.initialized:
+            raise RuntimeError("Google Earth Engine not initialized")
+
+        return ee.Geometry.Point([lon, lat])
+
     def create_study_area(self, lat: float, lon: float, buffer_km: float = 10) -> ee.Geometry:
         """
         Create a study area geometry from coordinates
-        
+
         Args:
             lat (float): Latitude
             lon (float): Longitude
             buffer_km (float): Buffer radius in kilometers
-            
+
         Returns:
             ee.Geometry: Study area geometry
         """
         if not self.initialized:
             raise RuntimeError("Google Earth Engine not initialized")
-        
-        point = ee.Geometry.Point([lon, lat])
+
+        point = self.create_point(lat, lon)
+        if buffer_km == 0:
+            return point
         area = point.buffer(buffer_km * 1000)  # Convert km to meters
         return area
     
@@ -78,15 +105,11 @@ class ClimateDataExtractor:
         
         # Convert temperature from Kelvin to Celsius
         def convert_temp(image):
-            temp_c = image.select(['temperature_2m_max', 'temperature_2m_mean']) \
-                .subtract(273.15) \
-                .copyProperties(image, ['system:time_start'])
-            
-            return temp_c.select(
-                ['temperature_2m_max', 'temperature_2m_mean'],
-                ['tmax_celsius', 'tmean_celsius']
-            )
-        
+            tmax = image.select('temperature_2m_max').subtract(273.15).rename('tmax_celsius')
+            tmean = image.select('temperature_2m').subtract(273.15).rename('tmean_celsius')
+
+            return image.select([]).addBands([tmax, tmean]).copyProperties(image, ['system:time_start'])
+
         return collection.map(convert_temp)
     
     def extract_temperature_timeseries(self, collection: ee.ImageCollection,
