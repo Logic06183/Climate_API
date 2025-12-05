@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
-COPY ../src/ ./src/
+COPY src/ ./src/
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
