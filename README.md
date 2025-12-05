@@ -3,11 +3,49 @@
 
 **A professional toolkit developed by the Heat Centre as a contribution to the health research consortium for extracting and analyzing climate data using Google Earth Engine (GEE) and GEEMAP.**
 
+**🌐 Now with Production Web API**: Deployed on Google Cloud Run for instant access!
+
+---
+
+## 🌐 Production API (NEW!)
+
+**Live API:** https://climate-health-app-4tfmuszmjq-uc.a.run.app
+
+A secure, scalable REST API for extracting climate data without managing code or infrastructure. Perfect for:
+- Quick data extraction for research projects
+- Integration into existing health data pipelines
+- Teaching and demonstrations
+- Automated data collection workflows
+
+### Quick API Example
+```bash
+# Health check (no auth required)
+curl https://climate-health-app-4tfmuszmjq-uc.a.run.app/health
+
+# Extract climate data (requires API key - contact for access)
+curl -X POST 'https://climate-health-app-4tfmuszmjq-uc.a.run.app/extract' \
+  -H 'X-API-Key: YOUR_KEY_HERE' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "location_name": "Soweto",
+    "latitude": -26.2678,
+    "longitude": 27.8607,
+    "start_date": "2024-01-01",
+    "end_date": "2024-01-31",
+    "buffer_km": 10,
+    "variables": ["temperature", "precipitation"]
+  }'
+```
+
+📖 **Full API Documentation**: See [API_GUIDE.md](API_GUIDE.md) for complete endpoint documentation and examples.
+
+🔑 **Request API Access**: Contact the Heat Centre for your API key.
+
 ---
 
 ## 🏥 About This Tool
 
-This repository provides **production-ready Python scripts** for health researchers to extract climate data from satellite datasets and integrate it with epidemiological studies. Specifically designed for studying climate-health relationships such as:
+This repository provides **both a production web API and Python scripts** for health researchers to extract climate data from satellite datasets and integrate it with epidemiological studies. Specifically designed for studying climate-health relationships such as:
 
 - **Heat stress and pregnancy outcomes** (preterm births, low birth weight)
 - **Temperature variability and cardiovascular events**
@@ -20,31 +58,58 @@ Developed as the **Heat Centre's contribution** to enabling accessible, reproduc
 
 ## ✨ Key Features
 
+- **☁️ Cloud API**: Production-ready REST API deployed on Google Cloud Run
+- **🔐 Secure**: API key authentication with Google Secret Manager
 - **🔧 Production Ready**: Fully tested, debug-free scripts requiring no troubleshooting
 - **📊 Health-Focused**: Examples and analyses designed for climate-health research
 - **🌍 Scalable**: Handles datasets from months to decades with chunked processing
-- **📁 Multiple Formats**: Export to CSV, Excel, and visualization outputs
+- **📁 Multiple Formats**: Export to CSV, Excel, JSON, and visualization outputs
 - **🎓 Student-Friendly**: Clear documentation for researchers new to climate data
 - **🚀 Consortium Ready**: Professional tool for sharing across research institutions
+- **🔄 Dual Environment**: Separate local and production environments via git worktrees
 
 ## 🚀 Quick Start
 
-### Prerequisites
-1. Google Earth Engine account (sign up at [earthengine.google.com](https://earthengine.google.com))
-2. Python 3.8+ with conda or pip
+### Option 1: Use the Cloud API (Recommended for Quick Access)
 
-### Installation
+**No setup required!** Just get an API key and start extracting data:
+
 ```bash
-# Clone this repository
-git clone <your-repo-url>
-cd Climate_API
+# Health check
+curl https://climate-health-app-4tfmuszmjq-uc.a.run.app/health
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Authenticate with Google Earth Engine
-earthengine authenticate
+# Extract data (request API key from Heat Centre)
+curl -X POST 'https://climate-health-app-4tfmuszmjq-uc.a.run.app/extract' \
+  -H 'X-API-Key: YOUR_KEY_HERE' \
+  -H 'Content-Type: application/json' \
+  -d '{ "location_name": "Your Location", "latitude": -26.2, "longitude": 28.0, ...}'
 ```
+
+### Option 2: Run Locally for Development
+
+**Prerequisites:**
+1. Google Earth Engine account (sign up at [earthengine.google.com](https://earthengine.google.com))
+2. Python 3.11+
+
+**Installation:**
+```bash
+# Clone the repository
+git clone https://github.com/Logic06183/Climate_API.git
+
+# For local development (no API key required)
+cd Climate_API_Local/webapp/backend
+pip install -r requirements.txt
+earthengine authenticate
+python3 main.py
+
+# Access at http://localhost:8000
+```
+
+**Note:** This repository uses git worktrees for dual environments:
+- `Climate_API/` - Production environment (cloud deployment)
+- `Climate_API_Local/` - Local environment (demos & development)
+
+See [WORKTREE_GUIDE.md](../WORKTREE_GUIDE.md) for details on managing both environments.
 
 ## 📚 Tutorials
 
