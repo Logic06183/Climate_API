@@ -199,12 +199,12 @@ async def health_check():
         "timestamp": datetime.now().isoformat()
     }
 
-@app.get("/presets", response_model=List[PresetLocation], dependencies=[Depends(get_api_key)])
+@app.get("/presets", response_model=List[PresetLocation])
 async def get_presets():
-    """Get list of preset locations (requires API key)"""
+    """Get list of preset locations"""
     return PRESET_LOCATIONS
 
-@app.get("/geocode", dependencies=[Depends(get_api_key)])
+@app.get("/geocode")
 async def geocode_location(query: str):
     """
     Geocode a location name to coordinates
@@ -245,7 +245,7 @@ async def geocode_location(query: str):
         logger.error(f"Geocoding error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Geocoding failed: {str(e)}")
 
-@app.post("/extract", response_model=ExtractionResponse, dependencies=[Depends(get_api_key)])
+@app.post("/extract", response_model=ExtractionResponse)
 async def extract_single_location(request: LocationRequest):
     """
     Extract climate data for a single location
@@ -311,7 +311,7 @@ async def extract_single_location(request: LocationRequest):
         logger.error(f"Error extracting data: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
 
-@app.post("/extract/batch", dependencies=[Depends(get_api_key)])
+@app.post("/extract/batch")
 async def extract_batch_csv(file: UploadFile = File(...), start_date: str = "", end_date: str = "", buffer_km: float = 10):
     """
     Extract climate data for multiple locations from CSV file
