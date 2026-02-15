@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "climate-toolkit"
+version = "0.2.0"
+description = "Climate Data Extraction Toolkit for Health Research using Google Earth Engine"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Heat Centre Research Team", email = "research@heatcentre.org"}
+]
+keywords = ["climate", "health", "google-earth-engine", "geospatial", "research"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+dependencies = [
+    "earthengine-api>=0.1.350",
+    "pandas>=1.5.0",
+    "numpy>=1.21.0",
+    "matplotlib>=3.5.0",
+    "openpyxl>=3.0.9",
+    "python-dateutil>=2.8.0",
+    "pyyaml>=6.0",
+    "click>=8.0.0",
+    "python-dotenv>=0.19.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+    "pytest-mock>=3.6.0",
+    "black>=22.0.0",
+    "flake8>=4.0.0",
+    "mypy>=0.950",
+    "isort>=5.10.0",
+]
+viz = [
+    "seaborn>=0.11.0",
+    "plotly>=5.10.0",
+]
+geo = [
+    "geemap>=0.21.0",
+    "geopandas>=0.12.0",
+    "folium>=0.12.0",
+]
+
+[project.scripts]
+climate-extract = "climate_toolkit.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/heatcentre/climate-toolkit"
+Documentation = "https://climate-toolkit.readthedocs.io"
+Repository = "https://github.com/heatcentre/climate-toolkit"
+Issues = "https://github.com/heatcentre/climate-toolkit/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --cov=climate_toolkit --cov-report=html --cov-report=term"
+testpaths = ["tests"]

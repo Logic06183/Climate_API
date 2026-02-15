@@ -1,0 +1,166 @@
+
+╔═══════════════════════════════════════════════════════════════════╗
+║                                                                   ║
+║     🏥  CLIMATE-HEALTH ANALYSIS WEB APP - QUICK GUIDE  🏥         ║
+║                                                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+📍 APP URL: http://localhost:8501
+
+═══════════════════════════════════════════════════════════════════
+
+🎯 HOW TO USE (5 MINUTES):
+
+STEP 1: UPLOAD YOUR DATA 📤
+   → Go to "Upload Data" tab
+   → Download the template CSV (optional)
+   → Upload your health data CSV
+   → Must have: 'date' column + health outcomes
+   → Example: date, preterm_births, cvd_events
+
+STEP 2: EXTRACT CLIMATE 🌡️
+   → Go to "Extract Climate" tab
+   → Check location in sidebar (default: Johannesburg)
+   → Click "🚀 Extract Climate Data"
+   → Wait ~30 seconds
+
+STEP 3: RUN ANALYSIS 📊
+   → Go to "Run Analysis" tab
+   → Select your health outcome from dropdown
+   → Click "🔬 Run Analysis"
+   → View results immediately!
+
+STEP 4: DOWNLOAD RESULTS ⬇️
+   → Click download buttons for:
+     - Merged dataset (CSV)
+     - Threshold analysis (CSV)
+     - Lag analysis (CSV)
+   → Right-click figures to save images
+
+═══════════════════════════════════════════════════════════════════
+
+📋 YOUR DATA FORMAT:
+
+Required:
+✅ CSV file
+✅ 'date' column (YYYY-MM-DD format)
+✅ At least one health outcome column
+
+Example:
+   date,total_births,preterm_births
+   2023-01-01,150,12
+   2023-01-02,148,11
+   2023-01-03,152,13
+
+Download template from the app!
+
+═══════════════════════════════════════════════════════════════════
+
+⚙️ SETTINGS (Sidebar):
+
+📍 Location:
+   - Location name
+   - Latitude/Longitude
+   - Default: Johannesburg
+
+📅 Study Period:
+   - Start date
+   - End date
+
+🔬 Analysis Options:
+   - Lag periods: 0,7,14,21,30 (days)
+   - Heat thresholds: 25,28,30,32,35 (°C)
+
+═══════════════════════════════════════════════════════════════════
+
+✨ FEATURES:
+
+✅ NO SYNTHETIC DATA - Only your real data
+✅ Automatic climate extraction (Google Earth Engine)
+✅ Statistical analysis (correlations, thresholds, lags)
+✅ Publication-ready figures
+✅ Downloadable results (CSV)
+✅ Data validation
+✅ Interactive interface
+
+═══════════════════════════════════════════════════════════════════
+
+📊 WHAT YOU GET:
+
+1. CORRELATION ANALYSIS
+   - Pearson r coefficient
+   - P-value
+   - Significance test
+
+2. HEAT THRESHOLD ANALYSIS
+   - Multiple temperature thresholds
+   - Relative risk for each
+   - Statistical significance
+
+3. DISTRIBUTED LAG ANALYSIS
+   - Effects at different lag periods
+   - Identify critical exposure windows
+
+4. VISUALIZATIONS
+   - Exposure-response curve
+   - Time series plots
+   - Publication-quality figures
+
+5. DOWNLOADABLE FILES
+   - Merged climate-health data (CSV)
+   - Threshold analysis results (CSV)
+   - Lag analysis results (CSV)
+
+═══════════════════════════════════════════════════════════════════
+
+🚀 LAUNCH THE APP:
+
+Option 1: Double-click RUN_APP.sh
+
+Option 2: Terminal
+   cd ~/Documents/Climate_API/app
+   ./RUN_APP.sh
+
+Option 3: Direct command
+   streamlit run climate_health_app.py
+
+═══════════════════════════════════════════════════════════════════
+
+🆘 TROUBLESHOOTING:
+
+Q: Can't upload file?
+A: Check it's a CSV with 'date' column
+
+Q: Climate extraction fails?
+A: Run: earthengine authenticate
+
+Q: Analysis fails?
+A: Ensure both health and climate data are loaded
+
+Q: App won't start?
+A: Run: pip install streamlit
+
+═══════════════════════════════════════════════════════════════════
+
+💡 TIPS:
+
+✓ Start with small dataset (1 month) to test
+✓ Check date ranges overlap (health + climate)
+✓ Download template for correct format
+✓ Save results after each analysis
+✓ Try different lag periods for different outcomes
+
+═══════════════════════════════════════════════════════════════════
+
+🎉 YOU'RE READY!
+
+The app is designed for climate-health researchers.
+No coding required - just upload and click!
+
+Your research questions answered in minutes, not weeks.
+
+Publication-ready outputs automatically generated.
+
+START ANALYZING! 🔬
+
+═══════════════════════════════════════════════════════════════════
