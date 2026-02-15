@@ -1,3 +1,6 @@
+# Web application
+streamlit>=1.30.0
+
 # Core packages for Google Earth Engine and geospatial analysis
 geemap>=0.21.0
 earthengine-api>=0.1.350

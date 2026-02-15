@@ -15,6 +15,9 @@ from pathlib import Path
 import io
 import base64
 from datetime import datetime
+import json
+import tempfile
+import os
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -23,6 +26,13 @@ from climate_toolkit import ClimateDataExtractor, ClimateDataExporter
 from climate_toolkit.health import ClimateHealthIntegrator
 from climate_toolkit.core import DataQualityValidator
 from climate_toolkit.config import ClimateToolkitConfig, GEEConfig
+
+# Try to import earthengine
+try:
+    import ee
+    GEE_AVAILABLE = True
+except ImportError:
+    GEE_AVAILABLE = False
 
 # Page config
 st.set_page_config(
@@ -123,6 +133,74 @@ def download_link(df, filename, text):
     return href
 
 
+def initialize_gee(auth_method, project_id, service_account_json=None):
+    """
+    Initialize Google Earth Engine with different authentication methods.
+
+    Args:
+        auth_method: 'local', 'service_account', or 'streamlit_secrets'
+        project_id: GEE project ID
+        service_account_json: Service account JSON content (if using service account)
+
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    if not GEE_AVAILABLE:
+        return False, "Google Earth Engine library not installed"
+
+    try:
+        if auth_method == 'service_account' and service_account_json:
+            # Use service account credentials
+            credentials_dict = json.loads(service_account_json)
+
+            # Create temporary file for credentials
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump(credentials_dict, f)
+                temp_cred_file = f.name
+
+            try:
+                credentials = ee.ServiceAccountCredentials(
+                    credentials_dict['client_email'],
+                    temp_cred_file
+                )
+                ee.Initialize(credentials, project=project_id)
+                return True, f"✅ Authenticated with service account: {credentials_dict['client_email']}"
+            finally:
+                # Clean up temp file
+                if os.path.exists(temp_cred_file):
+                    os.remove(temp_cred_file)
+
+        elif auth_method == 'streamlit_secrets':
+            # Use credentials from Streamlit secrets
+            if 'gee_service_account' in st.secrets:
+                credentials_dict = dict(st.secrets['gee_service_account'])
+
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                    json.dump(credentials_dict, f)
+                    temp_cred_file = f.name
+
+                try:
+                    credentials = ee.ServiceAccountCredentials(
+                        credentials_dict['client_email'],
+                        temp_cred_file
+                    )
+                    ee.Initialize(credentials, project=project_id)
+                    return True, f"✅ Authenticated with Streamlit secrets"
+                finally:
+                    if os.path.exists(temp_cred_file):
+                        os.remove(temp_cred_file)
+            else:
+                return False, "No GEE credentials found in Streamlit secrets"
+
+        else:  # 'local' or default
+            # Try to use locally authenticated credentials
+            ee.Initialize(project=project_id)
+            return True, f"✅ Authenticated with local credentials (project: {project_id})"
+
+    except Exception as e:
+        return False, f"❌ Authentication failed: {str(e)}"
+
+
 def main():
     # Header
     st.markdown('<div class="main-header">🏥 Climate-Health Analysis Platform</div>',
@@ -141,12 +219,98 @@ def main():
     # Sidebar
     st.sidebar.title("⚙️ Configuration")
 
+    # ===================================================================
+    # GEE Authentication
+    # ===================================================================
+    st.sidebar.subheader("🔑 Google Earth Engine Authentication")
+
+    with st.sidebar.expander("ℹ️ How to get GEE credentials", expanded=False):
+        st.markdown("""
+        ### Option 1: Service Account (Recommended for Cloud Deployment)
+
+        1. Go to [Google Cloud Console](https://console.cloud.google.com)
+        2. Select your GEE project
+        3. Go to **IAM & Admin** → **Service Accounts**
+        4. Click **Create Service Account**
+        5. Give it a name (e.g., "climate-health-app")
+        6. Grant role: **Earth Engine Resource Admin**
+        7. Click **Create Key** → **JSON**
+        8. Download the JSON file
+        9. Upload it below!
+
+        ### Option 2: Local Authentication (For Local Use)
+
+        Run in terminal:
+        ```bash
+        earthengine authenticate
+        ```
+
+        ### Get a GEE Project
+
+        1. Go to [https://earthengine.google.com](https://earthengine.google.com)
+        2. Sign up (free for research/education)
+        3. Create a project
+        4. Note your project ID (format: "your-project-name")
+        """)
+
+    # Authentication method selection
+    auth_method = st.sidebar.radio(
+        "Authentication Method",
+        ["Local Credentials", "Service Account JSON", "Streamlit Secrets"],
+        help="Choose how to authenticate with Google Earth Engine"
+    )
+
     # GEE Project ID
     gee_project = st.sidebar.text_input(
-        "Google Earth Engine Project ID",
-        value="joburg-hvi",
-        help="Your GEE project ID. Get one at https://earthengine.google.com"
+        "GEE Project ID",
+        value="",
+        placeholder="your-project-id",
+        help="Your Google Earth Engine project ID"
     )
+
+    # Service account file upload
+    service_account_json = None
+    if auth_method == "Service Account JSON":
+        uploaded_file = st.sidebar.file_uploader(
+            "Upload Service Account JSON",
+            type=['json'],
+            help="Upload the JSON key file from Google Cloud Console"
+        )
+
+        if uploaded_file is not None:
+            service_account_json = uploaded_file.read().decode('utf-8')
+            st.sidebar.success("✅ Service account file loaded!")
+
+            # Extract project ID from service account if not provided
+            if not gee_project:
+                try:
+                    creds = json.loads(service_account_json)
+                    if 'project_id' in creds:
+                        gee_project = creds['project_id']
+                        st.sidebar.info(f"Using project ID from service account: {gee_project}")
+                except:
+                    pass
+
+    # Test authentication button
+    if st.sidebar.button("🔐 Test GEE Authentication"):
+        with st.sidebar:
+            with st.spinner("Testing authentication..."):
+                if auth_method == "Local Credentials":
+                    success, message = initialize_gee('local', gee_project)
+                elif auth_method == "Service Account JSON":
+                    if service_account_json:
+                        success, message = initialize_gee('service_account', gee_project, service_account_json)
+                    else:
+                        success, message = False, "Please upload service account JSON file"
+                else:  # Streamlit Secrets
+                    success, message = initialize_gee('streamlit_secrets', gee_project)
+
+                if success:
+                    st.success(message)
+                else:
+                    st.error(message)
+
+    st.sidebar.markdown("---")
 
     # Study Location
     st.sidebar.subheader("📍 Study Location")
@@ -284,6 +448,26 @@ def main():
         """)
 
         if st.button("🚀 Extract Climate Data", type="primary", use_container_width=True):
+            # First, initialize GEE
+            with st.spinner("Authenticating with Google Earth Engine..."):
+                if auth_method == "Local Credentials":
+                    success, auth_message = initialize_gee('local', gee_project)
+                elif auth_method == "Service Account JSON":
+                    if service_account_json:
+                        success, auth_message = initialize_gee('service_account', gee_project, service_account_json)
+                    else:
+                        success = False
+                        auth_message = "❌ Please upload service account JSON file"
+                else:  # Streamlit Secrets
+                    success, auth_message = initialize_gee('streamlit_secrets', gee_project)
+
+                if not success:
+                    st.error(auth_message)
+                    st.stop()
+
+                st.info(auth_message)
+
+            # Now extract climate data
             with st.spinner("Extracting climate data from Google Earth Engine..."):
                 try:
                     config = ClimateToolkitConfig(
