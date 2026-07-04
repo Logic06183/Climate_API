@@ -218,7 +218,9 @@ class ClimateDataExtractor:
 
     def extract_climate_data(self, geometry: ee.Geometry, point: ee.Geometry,
                            start_date: str, end_date: str,
-                           variables: List[str] = None) -> pd.DataFrame:
+                           variables: List[str] = None,
+                           spatial_reducer: str = 'point',
+                           scale: int = 1000) -> pd.DataFrame:
         """
         Extract climate data for multiple variables
 
@@ -231,6 +233,13 @@ class ClimateDataExtractor:
                 Options: 'temperature', 'precipitation', 'humidity', 'wind',
                          'solar', 'pressure', 'evapotranspiration'
                 If None, defaults to ['temperature']
+            spatial_reducer (str): How to sample space. 'point' (default) samples
+                the exact pixel at ``point`` — fast, but returns NaN when that
+                pixel is masked (e.g. ERA5-Land marks coastal/water pixels as
+                nodata). 'mean' samples every pixel intersecting ``geometry`` and
+                averages them per day, ignoring masked pixels — robust for
+                coastal / water-adjacent sites when a buffer is supplied.
+            scale (int): Sampling scale in metres (default 1000).
 
         Returns:
             pd.DataFrame: Daily climate data with selected variables
@@ -280,8 +289,11 @@ class ClimateDataExtractor:
 
         print("Extracting time series from Earth Engine...")
 
-        # Get the time series data
-        time_series = processed_collection.getRegion(point, 1000).getInfo()
+        # 'point' samples the single pixel under the point; 'mean' samples every
+        # pixel intersecting the (buffered) geometry so masked water pixels can be
+        # averaged out. Both return the same getRegion table shape.
+        sample_region = point if spatial_reducer == 'point' else geometry
+        time_series = processed_collection.getRegion(sample_region, scale).getInfo()
 
         # Convert to DataFrame
         header = time_series[0]
@@ -297,15 +309,18 @@ class ClimateDataExtractor:
         exclude_cols = ['id', 'longitude', 'latitude', 'time', 'datetime', 'date']
         value_cols = [col for col in df.columns if col not in exclude_cols]
 
-        # Clean and organize data - first create date column, then add value columns
-        climate_df = pd.DataFrame()
-        climate_df['date'] = pd.to_datetime(df['date'])
-
-        # Add value columns
+        # Coerce values to numeric (getRegion yields None for masked pixels).
         for col in value_cols:
-            climate_df[col] = df[col].values
+            df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        climate_df = climate_df.dropna(subset=['date'])
+        # Collapse to one row per day. For 'point' there is a single pixel per day
+        # so this is a no-op; for 'mean' it averages across pixels, skipping NaN
+        # (masked) pixels — the key to robust coastal/water-adjacent extraction.
+        climate_df = (
+            df.dropna(subset=['date'])
+              .groupby('date', as_index=False)[value_cols].mean()
+        )
+        climate_df['date'] = pd.to_datetime(climate_df['date'])
         climate_df = climate_df.sort_values('date').reset_index(drop=True)
 
         print(f"Successfully extracted {len(climate_df)} daily records with {len(value_cols)} variables")

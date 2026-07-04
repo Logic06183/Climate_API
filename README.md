@@ -27,6 +27,52 @@ Developed as the **Heat Centre's contribution** to enabling accessible, reproduc
 - **🎓 Student-Friendly**: Clear documentation for researchers new to climate data
 - **🚀 Consortium Ready**: Professional tool for sharing across research institutions
 
+## 🔗 Linking Biological Data to Climate (location + timestamp)
+
+Have a table where **every row has its own location and its own date** — a
+biological sample, a clinical visit, a trap catch, a survey point — and want the
+climate each observation actually experienced? Use the **linkage** workflow. For
+every row it attaches climate summaries over the days *before* the observation
+(e.g. mean temperature over the prior 30 days, total rainfall over the prior 7),
+querying Earth Engine **once per site** for speed.
+
+**From R** (recommended for R users — a native `data.frame` in, `data.frame` out;
+see [`r/climatelink`](r/climatelink/README.md)):
+
+```r
+library(climatelink)
+climate_config(python = "/path/to/python")     # a Python with earthengine-api + geemap
+
+linked <- link_climate(
+  observations,                                 # your data.frame with lat/lon/date
+  variables  = c("temperature", "precipitation"),
+  windows    = c(7, 14, 30),                    # summarise the prior 7/14/30 days
+  buffer_km  = 10,                              # robust for coastal sites
+  project_id = "your-gee-project"
+)
+```
+
+**From Python / the command line:**
+
+```bash
+python link_climate.py \
+  --input samples.csv --output samples_climate.csv \
+  --variables temperature,precipitation --windows 7,30
+```
+
+```python
+from src.bio_climate_link import link_climate_dataframe
+linked = link_climate_dataframe(df, variables=["temperature"], windows=[7, 30])
+```
+
+Output columns are named `{variable}_{aggregation}_{N}d`
+(e.g. `tmean_celsius_mean_30d`, `precipitation_mm_sum_7d`), plus a `coverage_Nd`
+data-quality flag. See [`docs/BIO_CLIMATE_LINKAGE.md`](docs/BIO_CLIMATE_LINKAGE.md)
+for the full guide, and [`examples/bio_samples_example.csv`](examples/bio_samples_example.csv)
+for a runnable example.
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites

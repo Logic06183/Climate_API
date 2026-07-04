@@ -1,0 +1,137 @@
+---
+title: "Linking biological data to climate with climatelink"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Linking biological data to climate with climatelink}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+## The problem
+
+You have biological (or clinical, or ecological) data where **every row has its
+own place and its own time** — a trapped animal, a blood sample, a nest check, a
+hospital admission. You want to know what the climate was like at each of those
+places, in the window of time *before* each event, because that is what an
+organism actually experiences.
+
+This is a spatiotemporal join, and it's fiddly to do by hand: pull a daily
+climate series for each site, line the dates up, and compute rolling summaries
+over the right lag window. `climatelink` does it in one call.
+
+## Setup
+
+```{r}
+library(climatelink)
+
+# Tell climatelink which Python to use (needs earthengine-api + geemap + pandas),
+# and where the Climate_API repo lives (auto-detected if you're inside it).
+climate_config(python = "/opt/anaconda3/bin/python3")
+
+# Confirm the backend is healthy.
+climate_backend_status()
+```
+
+If you have never used Earth Engine on this machine, authenticate once:
+
+```{r}
+ee_authenticate(project = "your-gee-project")
+```
+
+## A minimal example
+
+```{r}
+obs <- data.frame(
+  sample_id = c("S001", "S002", "S003"),
+  species   = c("Mastomys", "Mastomys", "Rhabdomys"),
+  latitude  = c(-26.2678, -26.2678, -33.9249),
+  longitude = c( 27.8607,  27.8607,  18.4241),
+  date      = as.Date(c("2021-01-15", "2021-06-20", "2021-03-10"))
+)
+
+linked <- link_climate(
+  obs,
+  variables  = c("temperature", "precipitation"),
+  windows    = c(7, 30),
+  buffer_km  = 10,
+  project_id = "your-gee-project"
+)
+
+str(linked)
+```
+
+Each observation now carries, for example, `tmean_celsius_mean_30d` (mean
+temperature over the 30 days before the sample) and `precipitation_mm_sum_30d`
+(total rainfall over the same window), plus a `coverage_30d` flag.
+
+## Exposure windows and lags
+
+A *window* of `N` days ends on the observation date and looks back `N` days. If
+you want to **exclude** the days immediately around the event (say you believe
+the biological response lags by a week), shift the whole window with `lag`:
+
+```{r}
+# Summarise days 8–14 before each event (a 7-day window, lagged by 7):
+linked_lagged <- link_climate(
+  obs, variables = "temperature", windows = 7, lag = 7,
+  project_id = "your-gee-project"
+)
+```
+
+## Choosing aggregations
+
+Defaults are sensible per variable (temperature is averaged and maxed,
+precipitation is summed). Override them per raw column:
+
+```{r}
+linked_custom <- link_climate(
+  obs,
+  variables    = "temperature",
+  windows      = c(14, 30),
+  aggregations = list(tmean_celsius = c("mean", "min", "max"),
+                      tmax_celsius  = c("max")),
+  project_id   = "your-gee-project"
+)
+```
+
+## Data quality: always check coverage
+
+`coverage_Nd` is the fraction of each window's days that had data. A value below
+`1.0` usually means the point sits on a masked ERA5-Land pixel (common near
+coasts and large water bodies). The fix is a spatial buffer, which averages the
+surrounding land pixels:
+
+```{r}
+# Without a buffer, a coastal point may return NA:
+link_climate(obs[3, ], variables = "temperature", windows = 30,
+             project_id = "your-gee-project")$coverage_30d   # -> 0
+
+# With a buffer it resolves:
+link_climate(obs[3, ], variables = "temperature", windows = 30, buffer_km = 10,
+             project_id = "your-gee-project")$coverage_30d   # -> 1
+```
+
+## From and to CSV
+
+```{r}
+link_climate_csv(
+  "field_samples.csv", "field_samples_climate.csv",
+  variables = c("temperature", "precipitation"),
+  windows   = c(7, 30), buffer_km = 10,
+  project_id = "your-gee-project"
+)
+```
+
+## Next steps
+
+The enriched table is an ordinary data frame — hand it straight to your model:
+
+```{r}
+# e.g. does 30-day heat load predict an outcome?
+glm(outcome ~ tmean_celsius_mean_30d + precipitation_mm_sum_30d,
+    data = linked, family = binomial)
+```

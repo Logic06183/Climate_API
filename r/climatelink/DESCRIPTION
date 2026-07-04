@@ -1,0 +1,25 @@
+Package: climatelink
+Title: Link Biological Observations to Climate Exposure Windows
+Version: 0.1.0
+Authors@R:
+    person("Heat Centre", "Climate Data Toolkit", role = c("aut", "cre"),
+           email = "noreply@example.org")
+Description: Attach ERA5-Land climate exposure windows to biological or point
+    data that carry a location and a timestamp. For every observation the package
+    summarises climate variables (temperature, precipitation, humidity, wind,
+    solar radiation, pressure, evapotranspiration) over the N days leading up to
+    the observation date, using mean/max/min/sum aggregations. It wraps the Python
+    'Climate_API' extractor via 'reticulate' and Google Earth Engine, giving R
+    users a native data.frame-in / data.frame-out workflow.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Imports:
+    reticulate (>= 1.28)
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+SystemRequirements: Python (>= 3.9) with earthengine-api, geemap, pandas, numpy
+RoxygenNote: 7.3.2
+VignetteBuilder: knitr
+Config/testthat/edition: 3

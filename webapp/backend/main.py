@@ -205,10 +205,14 @@ async def get_presets():
     return PRESET_LOCATIONS
 
 @app.get("/geocode", dependencies=[Depends(get_api_key)])
-async def geocode_location(query: str):
+async def geocode_location(query: str, country_codes: Optional[str] = None, limit: int = 5):
     """
-    Geocode a location name to coordinates
-    Uses Nominatim (OpenStreetMap) - free, no API key required
+    Geocode a location name to coordinates.
+
+    Uses Nominatim (OpenStreetMap) - free, no API key required. Geocoding is
+    global by default; pass ``country_codes`` (a comma-separated list of ISO
+    3166-1 alpha-2 codes, e.g. ``za`` or ``za,zw,mz``) to restrict results to
+    specific countries.
     """
     try:
         import requests
@@ -218,10 +222,12 @@ async def geocode_location(query: str):
         params = {
             'q': query,
             'format': 'json',
-            'limit': 5,
-            'countrycodes': 'za',
+            'limit': max(1, min(int(limit), 20)),
             'addressdetails': 1
         }
+        # Optional country restriction; global search when omitted.
+        if country_codes:
+            params['countrycodes'] = country_codes.lower().replace(' ', '')
         headers = {'User-Agent': 'ClimateHealthApp/1.0'}
 
         response = requests.get(url, params=params, headers=headers, timeout=10)

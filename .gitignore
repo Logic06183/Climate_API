@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+venv/
+.venv/
+
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+r/climatelink/src/*.o
+r/climatelink/src/*.so
+r/**/*.Rcheck/
+
+# Generated linkage output (keep the input example, not the derived one)
+examples/bio_samples_linked.csv
+
+# OS
+.DS_Store
+r/climatelink/vignettes/*.html
